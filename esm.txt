@@ -1,0 +1,45 @@
+data a;
+set WORK.EXITING_MONEY_SPS_AAR_UNIVARIATE;
+week=intck( 'week', '21Apr2013'd,date);
+run;
+
+data train test;
+set a;
+if week<204 then output train;
+else if week>203 then output test; 
+run;
+
+/*********************ESM************************/
+
+%macro driver8 (driver,forecast,ffnum,ver);
+%macro weeks8 (leadweeks);
+proc esm data=train out=t_&ver. lead=&leadweeks. outstat=gof&ffnum./*(keep=MAPE)*/;
+	where &driver. ^= .;
+	id date interval=week;
+	forecast &driver. / model=&forecast.;
+run;
+/*data sf23;*/
+/*	merge sf23 sf22 (in=a);*/
+/*	by date;*/
+/*	if a;*/
+/*run;*/
+%mend weeks8;
+/**/%weeks8(4);
+proc sql;
+create table &driver._fc_&ver. as select a.date, a.&driver. as predicted format 40.,b.&driver format 40.
+from
+t_&ver. as a
+left outer join
+train as b
+on a.date=b.date
+;
+quit;
+%mend driver8;
+
+/*Driver:1-tx_nx_depst_amt_1wsum*/
+%driver8(AAR_EXM_SPS_A_1WSUM,adwinters,1,adwin);
+%driver8(AAR_EXM_SPS_A_1WSUM,simple,2,simple);
+%driver8(AAR_EXM_SPS_A_1WSUM,addseasonal,3,adseaso);
+%driver8(AAR_EXM_SPS_A_1WSUM,damptrend,4,dmptrend);
+%driver8(AAR_EXM_SPS_A_1WSUM,linear,5,linear);
+%driver8(AAR_EXM_SPS_A_1WSUM,double,6,double);
